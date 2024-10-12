@@ -1,7 +1,7 @@
 package main
 
 // https://pkg.go.dev/sort 이 문서를 읽어보면 일반적으로 slices.sort를 권장하는 것 같다.
-// slices.sort를 사용해서 코드를 작성한다.
+// slices.Sort를 사용해서 코드를 작성한다.
 
 import (
 	"cmp"
