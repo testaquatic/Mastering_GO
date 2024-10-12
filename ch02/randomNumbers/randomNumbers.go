@@ -19,7 +19,7 @@ func main() {
 		min   = 0
 		max   = 100
 		count = 100
-		seed  = time.Now().Nanosecond()
+		seed  = time.Now().UnixNano()
 	)
 	var err error
 	if flag.NArg() == 4 {
@@ -32,7 +32,7 @@ func main() {
 		if count, err = strconv.Atoi(flag.Arg(2)); err != nil {
 			log.Fatal(err)
 		}
-		if seed, err = strconv.Atoi(flag.Arg(3)); err != nil {
+		if seed, err = strconv.ParseInt(flag.Arg(3), 0, 64); err != nil {
 			log.Fatal(err)
 		}
 	} else {
@@ -40,11 +40,10 @@ func main() {
 	}
 
 	// `rand.Seed`는 deprecated이다.
-	r := rand.New(rand.NewSource(int64(seed)))
+	r := rand.New(rand.NewSource(seed))
 
 	for i := 0; i < count; i++ {
 		fmt.Print(random(r, min, max), " ")
 	}
 	fmt.Println()
-
 }
