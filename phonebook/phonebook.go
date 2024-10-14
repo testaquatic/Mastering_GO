@@ -3,8 +3,10 @@ package main
 import (
 	"flag"
 	"fmt"
+	"math/rand"
 	"os"
 	"path/filepath"
+	"strconv"
 )
 
 type Entry struct {
@@ -18,20 +20,55 @@ type Entry struct {
 
 var data = []Entry{}
 
-func search(key string) *Entry {
+func search(key string) int64 {
+	count := int64(0)
 	for i, v := range data {
-		if v.Surname == key {
-			return &data[i]
+		if v.Tel == key {
+			count += 1
+			fmt.Println(&data[i])
 		}
 	}
-
-	return nil
+	return count
 }
 
 // 전화번호의 목록을 출력한다.
 func list() {
 	for _, v := range data {
 		fmt.Println(v)
+	}
+}
+
+func random(min, max int) int {
+	return rand.Intn(max-min) + min
+}
+
+const (
+	MIN = 0
+	MAX = 94
+)
+
+func getString(len int64) string {
+	temp := ""
+	startChar := "!"
+	var i int64 = 1
+	for {
+		myRand := random(MIN, MAX)
+		newChar := string(startChar[0] + byte(myRand))
+		temp = temp + newChar
+		if i == len {
+			break
+		}
+		i++
+	}
+	return temp
+}
+
+func populate(n int) {
+	for i := 0; i < n; i++ {
+		name := getString(4)
+		surname := getString(5)
+		n := strconv.Itoa(random(100, 199))
+		data = append(data, Entry{name, surname, n})
 	}
 }
 
@@ -58,9 +95,9 @@ func main() {
 		return
 	}
 
-	data = append(data, Entry{"Mihalis", "Tsoukalos", "2109416471"})
-	data = append(data, Entry{"Mary", "Doe", "2109416871"})
-	data = append(data, Entry{"John", "Black", "2109416123"})
+	populate(100)
+
+	fmt.Println("Data has", len(data), "entries.")
 
 	switch {
 	// search 커맨드
@@ -70,11 +107,10 @@ func main() {
 			return
 		}
 		result := search(args.Search)
-		if result == nil {
+		if result == 0 {
 			fmt.Println("Entry not found:", args.Search)
 			return
 		}
-		fmt.Println(*result)
 	// list 커맨드
 	case args.List:
 		list()
