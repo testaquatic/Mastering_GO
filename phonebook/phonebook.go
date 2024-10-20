@@ -7,6 +7,8 @@ import (
 	"io"
 	"os"
 	"regexp"
+	"slices"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -36,7 +38,7 @@ const CSVFILE = "phonebook.csv"
 
 var index map[string]int
 
-func readCSVFILE(filepath string) error {
+func readCSVFILE() error {
 	_, err := os.Stat(CSVFILE)
 	if err != nil {
 		return err
@@ -54,15 +56,14 @@ func readCSVFILE(filepath string) error {
 			Name:       line[0],
 			Surname:    line[1],
 			Tel:        line[2],
-			LastAccess: fmt.Sprint(time.Now().Unix()),
+			LastAccess: strconv.FormatInt(time.Now().Unix(), 10),
 		}
 		data = append(data, temp)
 	}
-	if err != nil && err != io.EOF {
-		return err
+	if err == io.EOF {
+		return nil
 	}
-
-	return nil
+	return err
 }
 
 func saveCSVFILE(filepath string) error {
@@ -115,15 +116,13 @@ func insert(pS *Entry) error {
 	return nil
 }
 
-func search(key string) int64 {
-	count := int64(0)
-	for i, v := range data {
-		if v.Tel == key {
-			count += 1
-			fmt.Println(&data[i])
-		}
+func search(key string) *Entry {
+	i, ok := index[key]
+	if !ok {
+		return nil
 	}
-	return count
+	data[i].LastAccess = strconv.FormatInt(time.Now().Unix(), 10)
+	return &data[i]
 }
 
 // 전화번호의 목록을 출력한다.
@@ -131,6 +130,22 @@ func list() {
 	for _, v := range data {
 		fmt.Println(v)
 	}
+}
+
+func deleteEntry(key string) error {
+	i, ok := index[key]
+	if !ok {
+		return fmt.Errorf("%s cannot be found!", key)
+	}
+	data = slices.Delete(data, i, i+1)
+	delete(index, key)
+
+	err := saveCSVFILE(CSVFILE)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func main() {
@@ -160,7 +175,7 @@ func main() {
 		return
 	}
 
-	err = readCSVFILE(CSVFILE)
+	err = readCSVFILE()
 	if err != nil {
 		fmt.Println(err)
 		return
@@ -193,19 +208,38 @@ func main() {
 				return
 			}
 		}
-	// search 커맨드
-	case args.Search != "":
-		if len(os.Args) != 3 {
-			flag.Usage()
+	case "delete":
+		if flag.NArg() != 2 {
+			fmt.Println("Usage: delete Number")
 			return
 		}
-		result := search(args.Search)
-		if result == 0 {
-			fmt.Println("Entry not found:", args.Search)
+		t := strings.ReplaceAll(flag.Arg(1), "-", "")
+		if !matchTel(t) {
+			fmt.Println("Not a valid telephone number:", t)
 			return
 		}
-	// list 커맨드
-	case args.List:
+
+		err := deleteEntry(t)
+		if err != nil {
+			fmt.Println(err)
+		}
+	case "search":
+		if flag.NArg() != 2 {
+			fmt.Println("Usage: search Number")
+			return
+		}
+		t := strings.ReplaceAll(flag.Arg(1), "-", "")
+		if !matchTel(t) {
+			fmt.Println("Not a valid telephone number:", t)
+			return
+		}
+		temp := search(t)
+		if temp == nil {
+			fmt.Println("Number not found:", t)
+			return
+		}
+		fmt.Println(*temp)
+	case "list":
 		list()
 	// 커맨드를 찾을 수 없는 경우의 응답
 	default:
