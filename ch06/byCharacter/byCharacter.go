@@ -8,7 +8,7 @@ import (
 	"os"
 )
 
-func lineByLine(file string) error {
+func charByChar(file string) error {
 	f, err := os.Open(file)
 	if err != nil {
 		return err
@@ -16,17 +16,19 @@ func lineByLine(file string) error {
 	defer f.Close()
 
 	r := bufio.NewReader(f)
-
 	for {
 		line, err := r.ReadString('\n')
 		if err == io.EOF {
 			break
 		}
 		if err != nil {
-			fmt.Println("error reading file &s", err)
-			break
+			fmt.Printf("error reading file %s", err)
+			return err
 		}
-		fmt.Print(line)
+
+		for _, x := range line {
+			fmt.Println(string(x))
+		}
 	}
 
 	return nil
@@ -35,14 +37,13 @@ func lineByLine(file string) error {
 func main() {
 	flag.Parse()
 	if flag.NArg() == 0 {
-		fmt.Println("파일을 지정하지 않았습니다.")
+		fmt.Println("Usage: byCharacter filenames...")
 		return
 	}
-	for _, fileName := range flag.Args() {
-		err := lineByLine(fileName)
+	for _, filename := range flag.Args() {
+		err := charByChar(filename)
 		if err != nil {
-			fmt.Println(err)
-			return
+			fmt.Printf("error: %v", err)
 		}
 	}
 }
