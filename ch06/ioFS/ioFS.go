@@ -4,7 +4,6 @@ import (
 	"embed"
 	"fmt"
 	"io/fs"
-<<<<<<< HEAD
 	"os"
 )
 
@@ -37,12 +36,6 @@ func main() {
 	if err != nil {
 		fmt.Println(err)
 	}
-=======
-)
-
-func main() {
-
->>>>>>> Mastering_GO/main
 }
 
 func list(f embed.FS) error {
@@ -65,19 +58,15 @@ func extract(f embed.FS, filename string) ([]byte, error) {
 	return s, err
 }
 
-<<<<<<< HEAD
 func search(f embed.FS) error {
 	return fs.WalkDir(f, ".", walkSearch)
 }
 
-=======
->>>>>>> Mastering_GO/main
 func walkSearch(path string, d fs.DirEntry, err error) error {
 	if err != nil {
 		return err
 	}
 	if d.Name() == searchString {
-<<<<<<< HEAD
 		fileInfo, err := fs.Stat(f, path)
 		if err != nil {
 			return err
@@ -103,8 +92,3 @@ func writeToFile(s []byte, path string) error {
 	fmt.Printf("wrote %d bytes\n", n)
 	return nil
 }
-=======
-		
-	}
-}
->>>>>>> Mastering_GO/main
