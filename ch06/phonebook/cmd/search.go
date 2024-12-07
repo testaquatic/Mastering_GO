@@ -1,11 +1,11 @@
 /*
 Copyright © 2024 NAME HERE <EMAIL ADDRESS>
-
 */
 package cmd
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/spf13/cobra"
 )
@@ -13,15 +13,28 @@ import (
 // searchCmd represents the search command
 var searchCmd = &cobra.Command{
 	Use:   "search",
-	Short: "A brief description of your command",
-	Long: `A longer description that spans multiple lines and likely contains examples
-and usage of using your command. For example:
-
-Cobra is a CLI library for Go that empowers applications.
-This application is a tool to generate the needed files
-to quickly create a Cobra application.`,
+	Short: "search for the number",
+	Long: `search whether a telephone number exists in the
+	phone book application or not.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println("search called")
+		searchKey, _ := cmd.Flags().GetString("key")
+		if searchKey == "" {
+			fmt.Println("Not a valid key:", searchKey)
+			return
+		}
+		t := strings.ReplaceAll(searchKey, "-", "")
+
+		if !matchTel(t) {
+			fmt.Println("Not a valid telephone number:", t)
+			return
+		}
+
+		temp := search(t)
+		if temp == nil {
+			fmt.Println("Number not found:", t)
+			return
+		}
+		fmt.Println(*temp)
 	},
 }
 
@@ -37,4 +50,13 @@ func init() {
 	// Cobra supports local flags which will only run when this command
 	// is called directly, e.g.:
 	// searchCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
+}
+
+func search(key string) *Entry {
+	i, ok := index[key]
+	if !ok {
+		return nil
+	}
+
+	return &data[i]
 }

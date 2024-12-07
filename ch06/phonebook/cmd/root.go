@@ -5,6 +5,7 @@ package cmd
 
 import (
 	"encoding/json"
+	"fmt"
 	"io"
 	"os"
 	"strconv"
@@ -16,13 +17,8 @@ import (
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
 	Use:   "phonebook",
-	Short: "A brief description of your application",
-	Long: `A longer description that spans multiple lines and likely contains
-examples and usage of using your application. For example:
-
-Cobra is a CLI library for Go that empowers applications.
-This application is a tool to generate the needed files
-to quickly create a Cobra application.`,
+	Short: "A phone book application",
+	Long:  `This is a Phone Book application that uses JSON records.`,
 	// Uncomment the following line if your bare application
 	// has an action associated with it:
 	// Run: func(cmd *cobra.Command, args []string) { },
@@ -31,10 +27,19 @@ to quickly create a Cobra application.`,
 // Execute adds all child commands to the root command and sets flags appropriately.
 // This is called by main.main(). It only needs to happen once to the rootCmd.
 func Execute() {
-	err := rootCmd.Execute()
+	err := setJSONFILE()
 	if err != nil {
-		os.Exit(1)
+		fmt.Println(err)
+		return
 	}
+
+	err = readJSONFile(JSONFILE)
+	if err != nil && err != io.EOF {
+		return
+	}
+	createIndex()
+
+	cobra.CheckErr(rootCmd.Execute())
 }
 
 func init() {
@@ -46,7 +51,7 @@ func init() {
 
 	// Cobra also supports local flags, which will only run
 	// when this action is called directly.
-	rootCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
+	// rootCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 }
 
 type Entry struct {
@@ -63,6 +68,54 @@ type Phonebook []Entry
 var data = Phonebook{}
 var index map[string]int
 
+func readJSONFile(filepath string) error {
+	_, err := os.Stat(filepath)
+	if err != nil {
+		return err
+	}
+
+	f, err := os.Open(filepath)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	err = DeSerialize(&data, f)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func setJSONFILE() error {
+	filepath := os.Getenv("PHONEBOOK")
+	if filepath != "" {
+		JSONFILE = filepath
+	}
+
+	_, err := os.Stat(JSONFILE)
+	if err != nil {
+		fmt.Println("Creating", JSONFILE)
+		f, err := os.Create(JSONFILE)
+		if err != nil {
+			return err
+		}
+		defer f.Close()
+	}
+
+	fileinfo, err := os.Stat(JSONFILE)
+	if err != nil {
+		return err
+	}
+	mode := fileinfo.Mode()
+	if !mode.IsRegular() {
+		return fmt.Errorf("%s not a regular file", JSONFILE)
+	}
+
+	return nil
+}
+
 func saveJSONFile(filepath string) error {
 	f, err := os.Create(filepath)
 	if err != nil {
@@ -78,9 +131,22 @@ func saveJSONFile(filepath string) error {
 	return nil
 }
 
+func createIndex() {
+	index = make(map[string]int)
+	for i, k := range data {
+		key := k.Tel
+		index[key] = i
+	}
+}
+
 func Serialize(slices any, w io.Writer) error {
 	e := json.NewEncoder(w)
 	return e.Encode(slices)
+}
+
+func DeSerialize(slice any, r io.Reader) error {
+	e := json.NewDecoder(r)
+	return e.Decode(slice)
 }
 
 func initS(N, S, T string) *Entry {
