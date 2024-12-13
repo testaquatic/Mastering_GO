@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"sync"
 )
 
 func writeToChannel(c chan<- int, x int) {
@@ -10,50 +9,25 @@ func writeToChannel(c chan<- int, x int) {
 	close(c)
 }
 
-func printer(ch chan<- bool) {
-	ch <- true
+func printer(ch chan<- bool, times int) {
+	for i := 0; i < times; i++ {
+		ch <- true
+	}
+	close(ch)
 }
 
 func main() {
-	c := make(chan int, 1)
-	var waitGroup sync.WaitGroup
-	waitGroup.Add(1)
-	go func(c chan<- int) {
-		defer waitGroup.Done()
-		writeToChannel(c, 10)
-		fmt.Println("Exit.")
-	}(c)
-
-	fmt.Println("Read:", <-c)
-
-	_, ok := <-c
-	if ok {
-		fmt.Println("Channel is open!")
-	} else {
-		fmt.Println("Channel is closed!")
-	}
-
-	waitGroup.Wait()
-
 	var ch chan bool = make(chan bool)
-	for i := 0; i < 5; i++ {
-		go printer(ch)
-	}
 
-	n := 0
-	for i := range ch {
-		fmt.Println(i)
-		if i == true {
-			n++
-		}
-		if n > 2 {
-			fmt.Println("c:", n)
-			close(ch)
-			break
-		}
-	}
+	go printer(ch, 5)
 
-	for i := 0; i < 5; i++ {
-		fmt.Println(<-ch)
+	for val := range ch {
+		fmt.Println(val, " ")
 	}
+	fmt.Println()
+
+	for i := 0; i < 15; i++ {
+		fmt.Println(<-ch, " ")
+	}
+	fmt.Println()
 }
