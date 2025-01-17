@@ -37,12 +37,22 @@ func DeleteUser(pool *pgxpool.Pool, ID int) error {
 		return err
 	}
 
-	_, err = pool.Exec(context.Background(), "DELETE FROM users WHERE ID = $1", ID)
+	tx, err := pool.Begin(context.Background())
 	if err != nil {
 		return err
 	}
-
-	log.Println("Deleted user with ID:", ID)
+	_, err = tx.Exec(context.Background(), "DELETE FROM users WHERE ID = $1", ID)
+	if err != nil {
+		tx_err := tx.Rollback(context.Background())
+		if tx_err != nil {
+			return tx_err
+		}
+		return err
+	}
+	err = tx.Commit(context.Background())
+	if err != nil {
+		return err
+	}
 
 	return nil
 }
@@ -107,6 +117,7 @@ func IsUserValid(pool *pgxpool.Pool, u User) (bool, error) {
 	if err != nil {
 		return false, err
 	}
+	defer rows.Close()
 
 	var username, password string
 
@@ -122,4 +133,66 @@ func IsUserValid(pool *pgxpool.Pool, u User) (bool, error) {
 	}
 
 	return false, nil
+}
+
+type UserAlreadyExists struct {
+	Username string
+}
+
+func (error UserAlreadyExists) Error() string {
+	return fmt.Sprintf("User %s already exists", error.Username)
+}
+
+func InsertUser(pool *pgxpool.Pool, u User) error {
+	ok, err := IsUserValid(pool, u)
+	if err != nil {
+		return err
+	}
+	if ok {
+		return UserAlreadyExists{Username: u.Username}
+	}
+
+	tx, err := pool.Begin(context.Background())
+	if err != nil {
+		return err
+	}
+	_, err = tx.Exec(context.Background(), "INSERT INTO users (username, password, lastlogin, admin, active) VALUES ($1, $2, $3, $4, $5)", u.Username, u.Password, u.LastLogin, u.Admin, u.Active)
+	if err != nil {
+		tx_err := tx.Rollback(context.Background())
+		if tx_err != nil {
+			return tx_err
+		}
+		return err
+	}
+	err = tx.Commit(context.Background())
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func FindUserUsername(pool *pgxpool.Pool, username string) (User, error) {
+	rows, err := pool.Query(context.Background(), "SELECT * FROM users WHERE username = $1", username)
+	if err != nil {
+		return User{}, err
+	}
+	defer rows.Close()
+
+	u := User{}
+	var c1 int
+	var c2, c3 string
+	var c4 int64
+	var c5, c6 int
+
+	for rows.Next() {
+		err := rows.Scan(&c1, &c2, &c3, &c4, &c5, &c6)
+		if err != nil {
+			return User{}, err
+		}
+		u = User{ID: c1, Username: c2, Password: c3, LastLogin: c4, Admin: c5, Active: c6}
+		log.Println("Found user:", u)
+	}
+
+	return u, nil
 }

@@ -1,4 +1,4 @@
-module github.com/testaquatic/Mastering_GO/ch10/restdb
+module github.com/testaquatic/Mastering_GO/ch10/restapi/restdb
 
 go 1.23.4
 
