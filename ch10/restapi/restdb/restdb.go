@@ -2,20 +2,28 @@ package restdb
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
+// Postgres 접속을 위한 정보
 var (
 	Hostname = "localhost"
 	Port     = 5432
-	Username = "mtsouk"
+	Username = "postgres"
 	Password = "pass"
 	Database = "restapi"
 )
 
+type PgPool struct {
+	*pgxpool.Pool
+}
+
+// 사용자 정보
 type User struct {
 	ID        int
 	Username  string
@@ -25,174 +33,363 @@ type User struct {
 	Active    int
 }
 
-func ConnectPostgres() (*pgxpool.Pool, error) {
-	dbUrl := fmt.Sprintf("postgres://%s:%s@%s:%d/%s", Username, Password, Hostname, Port, Database)
-
-	return pgxpool.New(context.Background(), dbUrl)
+func (p *User) FromJSON(r io.Reader) error {
+	e := json.NewDecoder(r)
+	return e.Decode(p)
 }
 
-func DeleteUser(pool *pgxpool.Pool, ID int) error {
-	_, err := FindUserID(pool, ID)
+func (p *User) ToJSON(w io.Writer) error {
+	e := json.NewEncoder(w)
+	return e.Encode(p)
+}
+
+// Postgres 서버와 연결한다.
+func ConnectPostgres() *PgPool {
+	databaseURL := fmt.Sprintf("postgres://%s:%s@%s:%d/%s?sslmode=disable", Username, Password, Hostname, Port, Database)
+	dbpool, err := pgxpool.New(context.Background(), databaseURL)
 	if err != nil {
-		return err
+		log.Println(err)
+		return nil
 	}
 
-	tx, err := pool.Begin(context.Background())
-	if err != nil {
-		return err
+	return &PgPool{dbpool}
+}
+
+func (pgpool PgPool) Close() {
+	pgpool.Pool.Close()
+
+}
+
+func (pgpool PgPool) DeleteUser(ID int) bool {
+	if pgpool.Pool == nil {
+		log.Println("Cannot connect to PostgreSQL!")
+		// nil에 대해서 Close를 수행하는 것은 맞지 않는 것 같다.
+		// pgpool.Pool.Close()
+		return false
 	}
-	_, err = tx.Exec(context.Background(), "DELETE FROM users WHERE ID = $1", ID)
+
+	t := pgpool.FindUserID(ID)
+	if t.ID == 0 {
+		log.Println("User", ID, "does not exist.")
+		return false
+	}
+
+	// 트랜잭션을 시작한다.
+	tx, err := pgpool.Begin(context.Background())
 	if err != nil {
-		tx_err := tx.Rollback(context.Background())
-		if tx_err != nil {
-			return tx_err
+		log.Println("DeleteUser:", err)
+		return false
+	}
+	_, err = tx.Exec(context.Background(), "DELETE FROM users WHERE id=$1", ID)
+	if err != nil {
+		log.Println("DeleteUser:", err)
+		err = tx.Rollback(context.Background())
+		if err != nil {
+			log.Println("DeleteUser:", err)
 		}
-		return err
+		return false
 	}
 	err = tx.Commit(context.Background())
 	if err != nil {
-		return err
+		log.Println("DeleteUser:", err)
+		return false
 	}
 
-	return nil
+	return true
 }
 
-func ListAllUsers(pool *pgxpool.Pool) ([]User, error) {
-	rows, err := pool.Query(context.Background(), "SELECT * FROM users\n")
+func (pgpool PgPool) ListAllUsers() []User {
+	if pgpool.Pool == nil {
+		log.Println("Cannot connect to PostgreSQL!")
+		// nil에 대해서 Close를 수행하는 것은 맞지 않는 것 같다.
+		// pgpool.Pool.Close()
+		return nil
+	}
+
+	rows, err := pgpool.Query(context.Background(), "SELECT * FROM users")
 	if err != nil {
-		return []User{}, err
+		log.Println("ListAllUsers:", err)
+		return nil
 	}
 	defer rows.Close()
 
 	all := []User{}
-	var c1 int
-	var c2, c3 string
-	var c4 int64
-	var c5, c6 int
-
+	user := User{}
 	for rows.Next() {
-		err := rows.Scan(&c1, &c2, &c3, &c4, &c5, &c6)
+		err = rows.Scan(&user.ID, &user.Username, &user.Password, &user.LastLogin, &user.Admin, &user.Active)
 		if err != nil {
-			return []User{}, err
+			log.Println("ListAllUsers:", err)
+			continue
 		}
-		temp := User{ID: c1, Username: c2, Password: c3, LastLogin: c4, Admin: c5, Active: c6}
-		all = append(all, temp)
+		all = append(all, user)
 	}
+
 	log.Println("All:", all)
-
-	return all, nil
+	return all
 }
 
-func FindUserID(pool *pgxpool.Pool, ID int) (User, error) {
-	rows, err := pool.Query(context.Background(), "SELECT * from users WHERE ID = $1\n", ID)
+func (pgpool PgPool) IsUserValid(u User) bool {
+	if pgpool.Pool == nil {
+		log.Println("Cannot connect to PostgreSQL!")
+		// nil에 대해서 Close를 수행하는 것은 맞지 않는 것 같다.
+		// pgpool.Pool.Close()
+		return false
+	}
+
+	rows, err := pgpool.Query(context.Background(), "SELECT * FROM users WHERE username=$1", u.Username)
 	if err != nil {
-		return User{}, err
+		log.Println("IsUserValid:", err)
+		return false
 	}
 	defer rows.Close()
 
-	u := User{}
-	var c1 int
-	var c2, c3 string
-	var c4 int64
-	var c5, c6 int
-
-	for rows.Next() {
-		err := rows.Scan(&c1, &c2, &c3, &c4, &c5, &c6)
+	temp := User{}
+	if rows.Next() {
+		// 같은 이름을 갖는 여러 사용자가 있더라도 하나의 레코드만 사용한다.
+		err = rows.Scan(&temp.ID, &temp.Username, &temp.Password, &temp.LastLogin, &temp.Admin, &temp.Active)
 		if err != nil {
-			return User{}, err
+			log.Println("IsUserValid:", err)
+			return false
 		}
-		u = User{ID: c1, Username: c2, Password: c3, LastLogin: c4, Admin: c5, Active: c6}
-		log.Println("Found user:", u)
+	}
+	if u.Username == temp.Username && u.Password == temp.Password {
+		return true
 	}
 
-	if u.ID == 0 {
-		return User{}, fmt.Errorf("user %d does not exists", ID)
-	}
-
-	return u, nil
+	return false
 }
 
-func IsUserValid(pool *pgxpool.Pool, u User) (bool, error) {
-	rows, err := pool.Query(context.Background(), "SELECT username, password FROM users WHERE username = $1", u.Username)
-	if err != nil {
-		return false, err
+func (pgpool PgPool) InsertUser(u User) bool {
+	if pgpool.Pool == nil {
+		log.Println("Cannot connect to PostgreSQL!")
+		// nil에 대해서 Close를 수행하는 것은 맞지 않는 것 같다.
+		// pgpool.Pool.Close()
+		return false
 	}
-	defer rows.Close()
 
-	var username, password string
+	if pgpool.IsUserValid(u) {
+		log.Println("User", u.Username, "already exists!")
+		return false
+	}
 
-	for rows.Next() {
-		err := rows.Scan(&username, &password)
+	// 트랜잭션을 시작한다.
+	tx, err := pgpool.Begin(context.Background())
+	if err != nil {
+		log.Println("InsertUser:", err)
+		return false
+	}
+
+	_, err = tx.Exec(
+		context.Background(),
+		"INSERT INTO users (username, password, lastlogin, admin, active) VALUES ($1, $2, $3, $4, $5)",
+		u.Username, u.Password, u.LastLogin, u.Admin, u.Active,
+	)
+	if err != nil {
+		log.Println("InsertUser:", err)
+		err := tx.Rollback(context.Background())
 		if err != nil {
-			return false, err
+			log.Println("InsertUser:", err)
 		}
-	}
-
-	if u.Username == username && u.Password == password {
-		return true, nil
-	}
-
-	return false, nil
-}
-
-type UserAlreadyExists struct {
-	Username string
-}
-
-func (error UserAlreadyExists) Error() string {
-	return fmt.Sprintf("User %s already exists", error.Username)
-}
-
-func InsertUser(pool *pgxpool.Pool, u User) error {
-	ok, err := IsUserValid(pool, u)
-	if err != nil {
-		return err
-	}
-	if ok {
-		return UserAlreadyExists{Username: u.Username}
-	}
-
-	tx, err := pool.Begin(context.Background())
-	if err != nil {
-		return err
-	}
-	_, err = tx.Exec(context.Background(), "INSERT INTO users (username, password, lastlogin, admin, active) VALUES ($1, $2, $3, $4, $5)", u.Username, u.Password, u.LastLogin, u.Admin, u.Active)
-	if err != nil {
-		tx_err := tx.Rollback(context.Background())
-		if tx_err != nil {
-			return tx_err
-		}
-		return err
+		return false
 	}
 	err = tx.Commit(context.Background())
 	if err != nil {
-		return err
+		log.Println("InsertUser:", err)
+		return false
 	}
 
-	return nil
+	return true
 }
 
-func FindUserUsername(pool *pgxpool.Pool, username string) (User, error) {
-	rows, err := pool.Query(context.Background(), "SELECT * FROM users WHERE username = $1", username)
+func (pgpool PgPool) ListLogged() []User {
+	if pgpool.Pool == nil {
+		log.Println("Cannot connect to PostgreSQL!")
+		// nil에 대해서 Close를 수행하는 것은 맞지 않는 것 같다.
+		// pgpool.Pool.Close()
+		return nil
+	}
+
+	rows, err := pgpool.Query(context.Background(), "SELECT * FROM users WHERE active = 1")
 	if err != nil {
-		return User{}, err
+		log.Println("ListLogged:", err)
+		return nil
 	}
 	defer rows.Close()
 
-	u := User{}
-	var c1 int
-	var c2, c3 string
-	var c4 int64
-	var c5, c6 int
-
+	all := []User{}
+	user := User{}
 	for rows.Next() {
-		err := rows.Scan(&c1, &c2, &c3, &c4, &c5, &c6)
+		err = rows.Scan(&user.ID, &user.Username, &user.Password, &user.LastLogin, &user.Admin, &user.Active)
 		if err != nil {
-			return User{}, err
+			log.Println("ListLogged:", err)
+			continue
 		}
-		u = User{ID: c1, Username: c2, Password: c3, LastLogin: c4, Admin: c5, Active: c6}
-		log.Println("Found user:", u)
+		all = append(all, user)
 	}
 
-	return u, nil
+	log.Println("All:", all)
+	return all
+}
+
+func (pgpool PgPool) FindUserID(ID int) User {
+	if pgpool.Pool == nil {
+		log.Println("Cannot connect to PostgreSQL!")
+		// nil에 대해서 Close를 수행하는 것은 맞지 않는 것 같다.
+		// pgpool.Pool.Close()
+		return User{}
+	}
+
+	rows, err := pgpool.Query(context.Background(), "SELECT * FROM users WHERE id=$1", ID)
+	if err != nil {
+		log.Println("FindUserID:", err)
+		return User{}
+	}
+	defer rows.Close()
+
+	user := User{}
+	if rows.Next() {
+		err = rows.Scan(&user.ID, &user.Username, &user.Password, &user.LastLogin, &user.Admin, &user.Active)
+		if err != nil {
+			log.Println("FindUserID:", err)
+			return User{}
+		}
+	}
+
+	return user
+}
+
+func (pgpool PgPool) FindUserUsername(username string) User {
+	if pgpool.Pool == nil {
+		log.Println("Cannot connect to PostgreSQL!")
+		// nil에 대해서 Close를 수행하는 것은 맞지 않는 것 같다.
+		// pgpool.Pool.Close()
+		return User{}
+	}
+
+	rows, err := pgpool.Query(context.Background(), "SELECT * FROM users WHERE username=$1", username)
+	if err != nil {
+		log.Println("FindUserUsername:", err)
+		return User{}
+	}
+	defer rows.Close()
+
+	user := User{}
+	if rows.Next() {
+		err = rows.Scan(&user.ID, &user.Username, &user.Password, &user.LastLogin, &user.Admin, &user.Active)
+		if err != nil {
+			log.Println("FindUserUsername:", err)
+			return User{}
+		}
+		log.Println("Found user:", user)
+	}
+
+	return user
+}
+
+func (pgpool PgPool) ReturnLoggedUsers() []User {
+	if pgpool.Pool == nil {
+		log.Println("Cannot connect to PostgreSQL!")
+		// nil에 대해서 Close를 수행하는 것은 맞지 않는 것 같다.
+		// pgpool.Pool.Close()
+		return nil
+	}
+
+	rows, err := pgpool.Query(context.Background(), "SELECT * FROM users WHERE active = 1")
+	if err != nil {
+		log.Println("ReturnLoggedUsers:", err)
+		return nil
+	}
+	defer rows.Close()
+
+	all := []User{}
+	user := User{}
+	for rows.Next() {
+		err = rows.Scan(&user.ID, &user.Username, &user.Password, &user.LastLogin, &user.Admin, &user.Active)
+		if err != nil {
+			log.Println("ReturnLoggedUsers:", err)
+			continue
+		}
+		all = append(all, user)
+	}
+
+	log.Println("Logged in:", all)
+
+	return all
+}
+
+func (pgpool PgPool) IsUserAdmin(u User) bool {
+	if pgpool.Pool == nil {
+		log.Println("Cannot connect to PostgreSQL!")
+		// nil에 대해서 Close를 수행하는 것은 맞지 않는 것 같다.
+		// pgpool.Pool.Close()
+		return false
+	}
+
+	rows, err := pgpool.Query(context.Background(), "SELECT * FROM users WHERE username=$1", u.Username)
+	if err != nil {
+		log.Println("IsUserAdmin:", err)
+		return false
+	}
+	defer rows.Close()
+
+	temp := User{}
+	if rows.Next() {
+		// 같은 이름을 갖는 여러 사용자가 있더라도 하나의 레코드만 사용한다.
+		err = rows.Scan(&temp.ID, &temp.Username, &temp.Password, &temp.LastLogin, &temp.Admin, &temp.Active)
+		if err != nil {
+			log.Println("IsUserAdmin:", err)
+			return false
+		}
+	}
+	if u.Username == temp.Username && u.Password == temp.Password && temp.Admin == 1 {
+		return true
+	}
+
+	return false
+}
+
+func (pgpool PgPool) UpdateUser(u User) bool {
+	log.Println("Updating user:", u)
+
+	if pgpool.Pool == nil {
+		log.Println("Cannot connect to PostgreSQL!")
+		// nil에 대해서 Close를 수행하는 것은 맞지 않는 것 같다.
+		// pgpool.Pool.Close()
+		return false
+	}
+
+	// 트랜잭션을 시작한다.
+	tx, err := pgpool.Begin(context.Background())
+	if err != nil {
+		log.Println("UpdateUser:", err)
+		return false
+	}
+
+	res, err := tx.Exec(
+		context.Background(),
+		"UPDATE users SET username=$1, password=$2, admin=$3, active=$4 WHERE id=$5",
+		u.Username, u.Password, u.Admin, u.Active, u.ID,
+	)
+	if err != nil {
+		log.Println("UpdateUser:", err)
+		err := tx.Rollback(context.Background())
+		if err != nil {
+			log.Println("UpdateUser:", err)
+		}
+		return false
+	}
+	err = tx.Commit(context.Background())
+	if err != nil {
+		log.Println("UpdateUser:", err)
+		return false
+	}
+
+	affected := res.RowsAffected()
+	if affected == 0 {
+		log.Println("RowsAffected() failed")
+		return false
+	}
+	log.Println("Affected:", affected)
+
+	return true
 }

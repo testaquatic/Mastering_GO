@@ -1,15 +1,16 @@
 services:
     postgres:
         image: postgres
-        container_name: postgredb
+        container_name: postgresdb
         environment:
-            POSTGRES_USER: mtsouk
+            POSTGRES_USER: postgres
             POSTGRES_PASSWORD: pass
-            POSTGRES_DB: restapi
+            POSTGRES_PDB: restapi
         volumes:
             - ./postgres:/var/lib/postgresql/data/
         ports:
             - 5432:5432
+
 volumes:
     postgres_data:
         driver: local
