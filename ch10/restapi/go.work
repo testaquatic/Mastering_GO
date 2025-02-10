@@ -1,3 +1,6 @@
 go 1.23.5
 
-use ./restdb
+use (
+	./rest-api
+	./restdb
+)

@@ -44,23 +44,23 @@ func (p *User) ToJSON(w io.Writer) error {
 }
 
 // Postgres 서버와 연결한다.
-func ConnectPostgres() *PgPool {
+func ConnectPostgres() (*PgPool, error) {
 	databaseURL := fmt.Sprintf("postgres://%s:%s@%s:%d/%s?sslmode=disable", Username, Password, Hostname, Port, Database)
 	dbpool, err := pgxpool.New(context.Background(), databaseURL)
 	if err != nil {
 		log.Println(err)
-		return nil
+		return &PgPool{}, err
 	}
 
-	return &PgPool{dbpool}
+	return &PgPool{dbpool}, nil
 }
 
-func (pgpool PgPool) Close() {
+func (pgpool *PgPool) Close() {
 	pgpool.Pool.Close()
 
 }
 
-func (pgpool PgPool) DeleteUser(ID int) bool {
+func (pgpool *PgPool) DeleteUser(ID int) bool {
 	if pgpool.Pool == nil {
 		log.Println("Cannot connect to PostgreSQL!")
 		// nil에 대해서 Close를 수행하는 것은 맞지 않는 것 같다.
@@ -98,7 +98,7 @@ func (pgpool PgPool) DeleteUser(ID int) bool {
 	return true
 }
 
-func (pgpool PgPool) ListAllUsers() []User {
+func (pgpool *PgPool) ListAllUsers() []User {
 	if pgpool.Pool == nil {
 		log.Println("Cannot connect to PostgreSQL!")
 		// nil에 대해서 Close를 수행하는 것은 맞지 않는 것 같다.
@@ -128,7 +128,7 @@ func (pgpool PgPool) ListAllUsers() []User {
 	return all
 }
 
-func (pgpool PgPool) IsUserValid(u User) bool {
+func (pgpool *PgPool) IsUserValid(u User) bool {
 	if pgpool.Pool == nil {
 		log.Println("Cannot connect to PostgreSQL!")
 		// nil에 대해서 Close를 수행하는 것은 맞지 않는 것 같다.
@@ -159,7 +159,7 @@ func (pgpool PgPool) IsUserValid(u User) bool {
 	return false
 }
 
-func (pgpool PgPool) InsertUser(u User) bool {
+func (pgpool *PgPool) InsertUser(u User) bool {
 	if pgpool.Pool == nil {
 		log.Println("Cannot connect to PostgreSQL!")
 		// nil에 대해서 Close를 수행하는 것은 맞지 않는 것 같다.
@@ -201,7 +201,7 @@ func (pgpool PgPool) InsertUser(u User) bool {
 	return true
 }
 
-func (pgpool PgPool) ListLogged() []User {
+func (pgpool *PgPool) ListLogged() []User {
 	if pgpool.Pool == nil {
 		log.Println("Cannot connect to PostgreSQL!")
 		// nil에 대해서 Close를 수행하는 것은 맞지 않는 것 같다.
@@ -231,7 +231,7 @@ func (pgpool PgPool) ListLogged() []User {
 	return all
 }
 
-func (pgpool PgPool) FindUserID(ID int) User {
+func (pgpool *PgPool) FindUserID(ID int) User {
 	if pgpool.Pool == nil {
 		log.Println("Cannot connect to PostgreSQL!")
 		// nil에 대해서 Close를 수행하는 것은 맞지 않는 것 같다.
@@ -258,7 +258,7 @@ func (pgpool PgPool) FindUserID(ID int) User {
 	return user
 }
 
-func (pgpool PgPool) FindUserUsername(username string) User {
+func (pgpool *PgPool) FindUserUsername(username string) User {
 	if pgpool.Pool == nil {
 		log.Println("Cannot connect to PostgreSQL!")
 		// nil에 대해서 Close를 수행하는 것은 맞지 않는 것 같다.
@@ -286,7 +286,7 @@ func (pgpool PgPool) FindUserUsername(username string) User {
 	return user
 }
 
-func (pgpool PgPool) ReturnLoggedUsers() []User {
+func (pgpool *PgPool) ReturnLoggedUsers() []User {
 	if pgpool.Pool == nil {
 		log.Println("Cannot connect to PostgreSQL!")
 		// nil에 대해서 Close를 수행하는 것은 맞지 않는 것 같다.
@@ -317,7 +317,7 @@ func (pgpool PgPool) ReturnLoggedUsers() []User {
 	return all
 }
 
-func (pgpool PgPool) IsUserAdmin(u User) bool {
+func (pgpool *PgPool) IsUserAdmin(u User) bool {
 	if pgpool.Pool == nil {
 		log.Println("Cannot connect to PostgreSQL!")
 		// nil에 대해서 Close를 수행하는 것은 맞지 않는 것 같다.
@@ -348,7 +348,7 @@ func (pgpool PgPool) IsUserAdmin(u User) bool {
 	return false
 }
 
-func (pgpool PgPool) UpdateUser(u User) bool {
+func (pgpool *PgPool) UpdateUser(u User) bool {
 	log.Println("Updating user:", u)
 
 	if pgpool.Pool == nil {
