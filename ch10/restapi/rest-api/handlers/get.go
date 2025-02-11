@@ -15,7 +15,6 @@ func GetAllHandler(pgpool *restdb.PgPool) func(http.ResponseWriter, *http.Reques
 	return func(rw http.ResponseWriter, r *http.Request) {
 		log.Println("GetAllHandler Serving:", r.URL.Path, "from", r.URL.Host)
 		d, err := io.ReadAll(r.Body)
-		defer r.Body.Close()
 		if err != nil {
 			rw.WriteHeader(http.StatusBadRequest)
 			log.Println("GetAllHandler Error:", err)
@@ -63,7 +62,6 @@ func GetIDHandler(pgpool *restdb.PgPool) func(http.ResponseWriter, *http.Request
 		}
 
 		d, err := io.ReadAll(r.Body)
-		defer r.Body.Close()
 		if err != nil {
 			rw.WriteHeader(http.StatusBadRequest)
 			log.Println("GetIDHandler Error:", err)
@@ -141,7 +139,6 @@ func LoggedUserHandler(pgpool *restdb.PgPool) func(http.ResponseWriter, *http.Re
 		log.Println("LoggedUserHandler Serving:", r.URL.Path, "from", r.URL.Host)
 		var user = restdb.User{}
 		err := user.FromJSON(r.Body)
-		defer r.Body.Close()
 
 		if err != nil {
 			rw.WriteHeader(http.StatusBadRequest)

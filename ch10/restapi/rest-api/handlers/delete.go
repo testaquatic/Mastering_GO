@@ -23,7 +23,6 @@ func DeleteHandler(pgpool *restdb.PgPool) func(http.ResponseWriter, *http.Reques
 
 		var user = restdb.User{}
 		err := user.FromJSON(r.Body)
-		defer r.Body.Close()
 		if err != nil {
 			log.Println("DeleteHandler:", err)
 			rw.WriteHeader(http.StatusBadRequest)

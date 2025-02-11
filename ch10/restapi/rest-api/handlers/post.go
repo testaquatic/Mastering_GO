@@ -14,7 +14,6 @@ func AddHandler(pgpool *restdb.PgPool) func(http.ResponseWriter, *http.Request) 
 	return func(rw http.ResponseWriter, r *http.Request) {
 		log.Println("AddHandler Serving:", r.URL.Path, "from", r.Host)
 		d, err := io.ReadAll(r.Body)
-		defer r.Body.Close()
 		if err != nil {
 			rw.WriteHeader(http.StatusBadRequest)
 			log.Println("AddHandler:", err)
@@ -54,7 +53,6 @@ func LoginHandler(pgpool *restdb.PgPool) func(http.ResponseWriter, *http.Request
 		log.Println("LoginHandler Serving:", r.URL.Path, "from", r.Host)
 
 		d, err := io.ReadAll(r.Body)
-		defer r.Body.Close()
 		if err != nil {
 			log.Println("LoginHandler:", err)
 			rw.WriteHeader(http.StatusBadRequest)
@@ -103,7 +101,6 @@ func LogoutHandler(pgpool *restdb.PgPool) func(http.ResponseWriter, *http.Reques
 		log.Println("LogoutHandler Serving:", r.URL.Path, "from", r.Host)
 
 		d, err := io.ReadAll(r.Body)
-		defer r.Body.Close()
 		if err != nil {
 			log.Println("LogoutHandler:", err)
 			rw.WriteHeader(http.StatusBadRequest)

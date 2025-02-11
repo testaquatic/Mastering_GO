@@ -9,12 +9,10 @@ import (
 	"github.com/testaquatic/Mastering_GO/ch10/restapi/restdb"
 )
 
-
 func UpdateHandler(pgpool *restdb.PgPool) func(http.ResponseWriter, *http.Request) {
 	return func(rw http.ResponseWriter, r *http.Request) {
 		log.Println("UpdateHandler Serving:", r.URL.Path, "from", r.Host)
 		d, err := io.ReadAll(r.Body)
-		defer r.Body.Close()
 		if err != nil {
 			rw.WriteHeader(http.StatusBadRequest)
 			log.Println("UpdateHandler:", err)
