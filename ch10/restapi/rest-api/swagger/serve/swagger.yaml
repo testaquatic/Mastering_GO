@@ -1,0 +1,96 @@
+basePath: /
+consumes:
+    - application/json
+definitions:
+    User:
+        description: User defines the structure for a Full user Record
+        properties:
+            active:
+                description: Is the User Logged In or Not
+                format: int64
+                type: integer
+                x-go-name: Active
+            admin:
+                description: Is the User Admin or not
+                format: int64
+                type: integer
+                x-go-name: Admin
+            id:
+                description: |-
+                    the ID for the user
+                    in: body
+                format: int64
+                minimum: 1
+                type: integer
+                x-go-name: ID
+            lastlogin:
+                description: The Last Login time of the User
+                format: int64
+                minimum: 0
+                type: integer
+                x-go-name: LastLogin
+            password:
+                description: The Password of the User
+                type: string
+                x-go-name: Password
+            username:
+                description: |-
+                    The username of the user
+                    in: body
+                type: string
+                x-go-name: Name
+        required:
+            - username
+            - password
+            - lastlogin
+            - admin
+            - active
+        type: object
+        x-go-package: github.com/testaquatic/Mastering_GO/ch10/restapi/rest-api/swagger
+info:
+    description: '# Documentation for REST API'
+    title: for the RESTful Server
+    version: 0.1.0
+paths:
+    /delete/{id}:
+        delete:
+            description: The command should be issued by an admin user
+            operationId: deleteID
+            parameters:
+                - description: The user id to be delete
+                  format: int64
+                  in: path
+                  name: id
+                  required: true
+                  type: integer
+                  x-go-name: ID
+            responses:
+                "200":
+                    $ref: '#/responses/noContent'
+                "404":
+                    $ref: '#/responses/ErrorMessage'
+            summary: Delete a user given their ID.
+            tags:
+                - DeleteUser
+    /logged:
+        get:
+            description: Returns a list of logged in users
+            operationId: getUserInfo
+            parameters:
+                - description: A list of users
+                  in: body
+                  name: Body
+                  schema:
+                    $ref: '#/definitions/User'
+            responses:
+                "200":
+                    $ref: '#/responses/UsersResponse'
+                "400":
+                    $ref: '#/responses/BadRequest'
+            tags:
+                - logged
+produces:
+    - application/json
+schemes:
+    - http
+swagger: "2.0"
