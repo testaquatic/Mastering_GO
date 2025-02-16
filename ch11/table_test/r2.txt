@@ -1,0 +1,17 @@
+goos: linux
+goarch: amd64
+cpu: 13th Gen Intel(R) Core(TM) i7-13700F
+BenchmarkBuffer4Create-8    	 1788028	       581.2 ns/op	     304 B/op	       5 allocs/op
+BenchmarkBuffer8Create-8    	 1883834	       556.5 ns/op	     304 B/op	       5 allocs/op
+BenchmarkBuffer16Create-8   	 2154514	       542.8 ns/op	     304 B/op	       5 allocs/op
+BenchmarkRead/10.txt-1-8    	  390166	      3065 ns/op	     168 B/op	       6 allocs/op
+BenchmarkRead/10.txt-16-8   	  553869	      2160 ns/op	     200 B/op	       6 allocs/op
+BenchmarkRead/10.txt-96-8   	  534243	      2186 ns/op	     440 B/op	       6 allocs/op
+BenchmarkRead/1000.txt-1-8  	   10000	    110494 ns/op	     168 B/op	       6 allocs/op
+BenchmarkRead/1000.txt-16-8 	   79977	     14824 ns/op	     200 B/op	       6 allocs/op
+BenchmarkRead/1000.txt-96-8 	  262682	      4453 ns/op	     440 B/op	       6 allocs/op
+BenchmarkRead/5k.txt-1-8    	    2197	    549983 ns/op	     168 B/op	       6 allocs/op
+BenchmarkRead/5k.txt-16-8   	   17949	     66783 ns/op	     200 B/op	       6 allocs/op
+BenchmarkRead/5k.txt-96-8   	   87518	     13577 ns/op	     440 B/op	       6 allocs/op
+PASS
+ok  	command-line-arguments	17.384s
